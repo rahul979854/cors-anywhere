@@ -1,14 +1,11 @@
-// Listen on a specific host via the HOST environment variable
+// Import required modules
+var cors_proxy = require('./lib/cors-anywhere');
+
+// Set host and port
 var host = process.env.HOST || '0.0.0.0';
-// Listen on a specific port via the PORT environment variable
 var port = process.env.PORT || 8080;
 
-// Grab the blacklist from the command-line so that we can update the blacklist without deploying
-// again. CORS Anywhere is open by design, and this blacklist is not used, except for countering
-// immediate abuse (e.g. denial of service). If you want to block all origins except for some,
-// use originWhitelist instead.
-var originBlacklist = parseEnvList(process.env.CORSANYWHERE_BLACKLIST);
-var originWhitelist = parseEnvList(process.env.CORSANYWHERE_WHITELIST);
+// Parse environment variables for whitelisting
 function parseEnvList(env) {
   if (!env) {
     return [];
@@ -16,34 +13,33 @@ function parseEnvList(env) {
   return env.split(',');
 }
 
-// Set up rate-limiting to avoid abuse of the public CORS Anywhere server.
+// Load environment-based configurations
+var originBlacklist = parseEnvList(process.env.CORSANYWHERE_BLACKLIST);
+var originWhitelist = parseEnvList(process.env.CORSANYWHERE_WHITELIST);
 var checkRateLimit = require('./lib/rate-limit')(process.env.CORSANYWHERE_RATELIMIT);
 
-var cors_proxy = require('./lib/cors-anywhere');
+// Start the CORS proxy server
 cors_proxy.createServer({
   originBlacklist: originBlacklist,
   originWhitelist: originWhitelist,
-  requireHeader: ['origin', 'x-requested-with'],
+  
+  // Fix: Remove header restrictions
+  requireHeader: [],  // This fixes the "Missing required request header" error
+  
   checkRateLimit: checkRateLimit,
   removeHeaders: [
     'cookie',
     'cookie2',
-    // Strip Heroku-specific headers
     'x-request-start',
     'x-request-id',
     'via',
     'connect-time',
-    'total-route-time',
-    // Other Heroku added debug headers
-    // 'x-forwarded-for',
-    // 'x-forwarded-proto',
-    // 'x-forwarded-port',
+    'total-route-time'
   ],
   redirectSameOrigin: true,
   httpProxyOptions: {
-    // Do not add X-Forwarded-For, etc. headers, because Heroku already adds it.
-    xfwd: false,
+    xfwd: false
   },
 }).listen(port, host, function() {
-  console.log('Running CORS Anywhere on ' + host + ':' + port);
+  console.log(`CORS Anywhere Running on ${host}:${port}`);
 });
