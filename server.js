@@ -3,9 +3,11 @@ const cors_proxy = require('cors-anywhere');
 const host = process.env.HOST || '0.0.0.0';
 const port = process.env.PORT || 8080;
 
+const allowedOrigin = 'https://webiptv.updatesbyrahul.site';
+
 cors_proxy.createServer({
-  originWhitelist: [], // Allow all origins
-  requireHeader: [], 
+  originWhitelist: [allowedOrigin], // Only allow your site
+  requireHeader: ['origin', 'x-requested-with'], // Require these headers
   removeHeaders: [
     'cookie',
     'cookie2',
@@ -24,8 +26,17 @@ cors_proxy.createServer({
     if (!/^https?:\/\//.test(url)) {
       return callback(new Error('Invalid host: ' + url));
     }
+
+    // Validate the origin or referer manually (double protection)
+    if (
+      origin !== allowedOrigin &&
+      (!this.referer || !this.referer.startsWith(allowedOrigin))
+    ) {
+      return callback(new Error('Blocked: Unauthorized origin ' + origin));
+    }
+
     callback(null, url);
   }
-}).listen(port, host, function() {
-  console.log(`Running CORS Anywhere on ${host}:${port}`);
+}).listen(port, host, function () {
+  console.log(`✅ CORS Proxy running at ${host}:${port} for ${allowedOrigin}`);
 });
